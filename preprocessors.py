@@ -24,13 +24,13 @@ class HistoryPreprocessor(Preprocessor):
         self.history_length=history_length
         self.queue=[]
 
-    def process_state_for_network(self, state):
+    def process_state_for_network(self, state,toappend=True):
         """You only want history when you're deciding the current action to take."""
         if len(self.queue)<self.history_length: toreturn=[0]*(self.history_length-len(self.queue))+self.queue
         else:
             toreturn=self.queue
-            self.queue = self.queue[1:]
-        self.queue.append(state)
+            if toappend: self.queue = self.queue[1:]
+        if toappend: self.queue.append(state)
         return toreturn
 
 
@@ -120,7 +120,7 @@ class AtariPreprocessor(Preprocessor):
         outputs float32 images.
         """
         I=self.process_state_for_memory2(state)
-        return I.astype(np.float)
+        return I.astype(np.float32)
 
 
     def process_batch(self, samples):
@@ -135,7 +135,6 @@ class AtariPreprocessor(Preprocessor):
     def process_reward(self, reward):
         """Clip reward between -1 and 1."""
         return np.sign(reward)
-
 
 class PreprocessorSequence(Preprocessor):
     """You may find it useful to stack multiple prepcrocesosrs (such as the History and the AtariPreprocessor).

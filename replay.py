@@ -59,6 +59,7 @@ class ReplayMemory(ReplayMemory):
         self.preprocessor = AtariPreprocessor(downsample_img_size)
         self.historytracker = HistoryPreprocessor(window_length)
         self.state_hash_table={}
+        self.imgsize=downsample_img_size
 
     def hashfunc(self,state):
         hashval=xxhash.xxh32(state.tostring()).hexdigest()
@@ -69,6 +70,7 @@ class ReplayMemory(ReplayMemory):
         return len(self.state_hash_table.keys())
 
     def get_state(self,state_hash):
+        if type(state_hash)==type(0): return np.zeros((self.imgsize,self.imgsize))
         return self.state_hash_table[state_hash]
 
     def append(self, state,action,reward,next_tuple):
@@ -87,6 +89,15 @@ class ReplayMemory(ReplayMemory):
 
     def end_episode(self, final_state, is_terminal):
         self.historytracker.reset()
+
+    def phi(self,state):
+        prev_states=self.historytracker.process_state_for_network(state,False)
+        processed_states = []
+        for s in prev_states:
+            processed_states.append(self.get_state(s).astype(np.float32))
+        processed_states.append(state)
+        obs = np.stack(processed_states, axis=0)
+        return obs
 
     def sample(self, batch_size, indexes=None):
         if indexes: batch_indices=indexes
