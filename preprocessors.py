@@ -1,10 +1,7 @@
 """Suggested Preprocessors."""
-
 import numpy as np
 from PIL import Image
-
-from deeprl_hw2 import utils
-from deeprl_hw2.core import Preprocessor
+from core import Preprocessor
 
 
 class HistoryPreprocessor(Preprocessor):
@@ -29,15 +26,12 @@ class HistoryPreprocessor(Preprocessor):
 
     def process_state_for_network(self, state):
         """You only want history when you're deciding the current action to take."""
-        if len(self.queue)<self.history_length:
-            toreturn=[0]*(self.history_length-len(self.queue))+self.queue
-            self.queue=self.queue[1:]
-            self.queue.append(state)
-            return toreturn
+        if len(self.queue)<self.history_length: toreturn=[0]*(self.history_length-len(self.queue))+self.queue
         else:
             toreturn=self.queue
-            self.queue=self.queue[1:]
-            return toreturn
+            self.queue = self.queue[1:]
+        self.queue.append(state)
+        return toreturn
 
 
     def reset(self):
@@ -90,7 +84,7 @@ class AtariPreprocessor(Preprocessor):
     def __init__(self, new_size):
         self.new_size=new_size
 
-    def process_state_for_memory(self, state):
+    def process_state_for_memory(self, state): #80
         """Scale, convert to greyscale and store as uint8.
 
         We don't want to save floating point numbers in the replay
@@ -108,6 +102,16 @@ class AtariPreprocessor(Preprocessor):
         I[I != 0] = 1 # everything else (paddles, ball) just set to 1
         return I
 
+    def process_state_for_memory2(self,state): #84
+        frame=state
+        img = np.reshape(frame, [210, 160, 3]).astype(np.float32)
+        img = img[:, :, 0] * 0.299 + img[:, :, 1] * 0.587 + img[:, :, 2] * 0.114
+        img = Image.fromarray(img)
+        resized_screen = img.resize((84, 110), Image.BILINEAR)
+        resized_screen = np.array(resized_screen)
+        x_t = resized_screen[18:102, :]
+        x_t = np.reshape(x_t, [84, 84, 1])
+        return x_t.astype(np.uint8)
 
     def process_state_for_network(self, state):
         """Scale, convert to greyscale and store as float32.
@@ -115,7 +119,7 @@ class AtariPreprocessor(Preprocessor):
         Basically same as process state for memory, but this time
         outputs float32 images.
         """
-        I=self.process_state_for_memory(state)
+        I=self.process_state_for_memory2(state)
         return I.astype(np.float)
 
 
@@ -126,20 +130,11 @@ class AtariPreprocessor(Preprocessor):
         samples from the replay memory. Meaning you need to convert
         both state and next state values.
         """
-        samples_changed=[]
-        for s in samples:
-            prev_states, st_processed, action, reward, st1_processed, isterminal=s
-            prev_states_changed=[]
-            for state in prev_states: prev_states_changed.append(state.astype(np.float32))
-            st_processed=st_processed.astype(np.float32)
-            st1_processed=st1_processed.astype(np.float32)
-            s_changed=(prev_states_changed,st_processed,action,reward,st1_processed,isterminal)
-            samples_changed.append(s_changed)
-        return samples_changed
+        pass
 
     def process_reward(self, reward):
         """Clip reward between -1 and 1."""
-        pass
+        return np.sign(reward)
 
 
 class PreprocessorSequence(Preprocessor):

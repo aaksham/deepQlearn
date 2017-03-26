@@ -1,6 +1,7 @@
-import numpy
-from .core import ReplayMemory
-from deeprl_hw2.preprocessors import AtariPreprocessor,HistoryPreprocessor
+import numpy as np
+import xxhash
+from core import ReplayMemory
+from preprocessors import AtariPreprocessor,HistoryPreprocessor
 
 class ReplayMemory(ReplayMemory):
     """Interface for replay memories.
@@ -57,16 +58,30 @@ class ReplayMemory(ReplayMemory):
         self.experience=[]
         self.preprocessor = AtariPreprocessor(downsample_img_size)
         self.historytracker = HistoryPreprocessor(window_length)
+        self.state_hash_table={}
+
+    def hashfunc(self,state):
+        hashval=xxhash.xxh32(state.tostring()).hexdigest()
+        self.state_hash_table[hashval]=state
+        return hashval
+
+    def get_state_hash_table_stats(self):
+        return len(self.state_hash_table.keys())
+
+    def get_state(self,state_hash):
+        return self.state_hash_table[state_hash]
 
     def append(self, state,action,reward,next_tuple):
-        if len(self.experience)>self.max_size:
-            self.experience=self.experience[1:]
+        if len(self.experience)>self.max_size: self.experience=self.experience[1:]
         st_processed = self.preprocessor.process_state_for_memory(state)
+        st_hash=self.hashfunc(st_processed)
         st1 = next_tuple[0]
         isterminal = next_tuple[2]
         st1_processed = self.preprocessor.process_state_for_memory(st1)
-        prev_states = self.historytracker(st_processed)
-        et = (prev_states, st_processed, action, reward, st1_processed, isterminal)
+        st1_hash=self.hashfunc(st1_processed)
+        prev_states = self.historytracker.process_state_for_network(st_hash)
+        reward = self.preprocessor.process_reward(reward)
+        et = (prev_states, st_hash, action, reward, st1_hash, isterminal)
         self.experience.append(et)
         if isterminal: self.end_episode(st1,isterminal)
 
@@ -75,10 +90,31 @@ class ReplayMemory(ReplayMemory):
 
     def sample(self, batch_size, indexes=None):
         if indexes: batch_indices=indexes
-        else: batch_indices=numpy.random.choice(self.max_size,batch_size)
+        else: batch_indices=np.random.choice(self.max_size,batch_size)
         batch=[]
         for i in batch_indices:
-            batch.append(self.experience[i])
+            datapt = self.experience[i]
+            action = datapt[2]
+            reward = datapt[3]
+            is_terminal = datapt[5]
+
+            processed_states = []
+            prev_states = datapt[0]
+            for s in prev_states:
+                processed_states.append(self.get_state(s).astype(np.float32))
+            curstate = self.get_state(datapt[1]).astype(np.float32)
+            processed_states.append(curstate)
+            next_state = self.get_state(datapt[4]).asptype(np.float32)
+            processed_states.append(next_state)
+
+            obs = np.stack(processed_states[:4], axis=0)
+            next_obs = np.stack(processed_states[1:], axis=0)
+
+            batch.append((obs, action, reward, next_obs, is_terminal))
+
+        batch = zip(*batch)
+        batch = [np.array(x) for x in batch]
+
         return batch
 
     def clear(self):

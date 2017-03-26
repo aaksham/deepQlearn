@@ -24,6 +24,8 @@ def huber_loss(y_true, y_pred, max_grad=1.):
     tf.Tensor
       The huber loss.
     """
+    loss=0.5*tf.square(y_true-y_pred)
+
     pass
 
 
