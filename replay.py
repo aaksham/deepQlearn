@@ -70,7 +70,7 @@ class ReplayMemory(ReplayMemory):
         return len(self.state_hash_table.keys())
 
     def get_state(self,state_hash):
-        if type(state_hash)==type(0): return np.zeros((self.imgsize,self.imgsize))
+        if state_hash==0: return np.zeros((self.imgsize,self.imgsize))
         return self.state_hash_table[state_hash]
 
     def append(self, state,action,reward,next_tuple):
@@ -101,7 +101,7 @@ class ReplayMemory(ReplayMemory):
 
     def sample(self, batch_size, indexes=None):
         if indexes: batch_indices=indexes
-        else: batch_indices=np.random.choice(self.max_size,batch_size)
+        else: batch_indices=np.random.choice(len(self.experience),batch_size)
         batch=[]
         for i in batch_indices:
             datapt = self.experience[i]
