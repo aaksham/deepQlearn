@@ -86,6 +86,7 @@ class ReplayMemory(ReplayMemory):
         et = (prev_states, st_hash, action, reward, st1_hash, isterminal)
         self.experience.append(et)
         if isterminal: self.end_episode(st1,isterminal)
+        return st_hash,st1_hash
 
     def end_episode(self, final_state, is_terminal):
         self.historytracker.reset()

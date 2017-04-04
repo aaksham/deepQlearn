@@ -41,6 +41,7 @@ class DQNAgent:
     """
     def __init__(self,
                  q_network,
+                 targetq_network,
                  preprocessor,
                  memory,
                  policy,
@@ -58,6 +59,8 @@ class DQNAgent:
         self.num_burn_in = num_burn_in
         self.train_freq = train_freq
         self.batch_size = batch_size
+        self.Q=q_network
+        self.targetQ=targetq_network
 
     def compile(self, optimizer, loss_func):
         """Setup all of the TF graph variables/ops.
@@ -76,9 +79,9 @@ class DQNAgent:
         keras.optimizers.Optimizer class. Specifically the Adam
         optimizer.
         """
+        self.Q.compile(loss=loss_func, optimizer=optimizer)
+        self.targetQ.compile(loss=loss_func, optimizer=optimizer)
 
-        #self.q_network.compile(loss=loss_func,optimizer=)
-        pass
 
     def calc_q_values(self, state):
         """Given a state (or batch of states) calculate the Q-values.
@@ -156,6 +159,39 @@ class DQNAgent:
           How long a single episode should last before the agent
           resets. Can help exploration.
         """
+
+        for i in range(num_iterations):
+            start = env.reset()
+            start_processed = self.preprocessor.process_state_for_memory2(start)
+            start_hash = self.memory.hashfunc(start_processed)
+            st=start_hash
+            for play in range(max_episode_length):
+                phi_st=self.memory.phi(st)
+                qvals=self.Q.predict(phi_st)
+                at=self.policy.select_action(qvals)
+                if len(self.memory.experience)<self.num_burn_in: at=env.action_space.sample()
+                next_tuple=env.step(at)
+                rt = next_tuple[1]
+                isterminal = next_tuple[2]
+                st_hash, st1_hash = self.memory.append(st, at, rt, next_tuple)
+                st=st1_hash
+                if isterminal: break
+            if i%self.target_update_freq==0:
+                obs_batch, action_batch, reward_batch, next_obs_batch, done_batch=self.memory.sample(self.batch_size)
+                y_true=[]
+                #y_pred=[]
+                for j in range(len(obs_batch)):
+                    if done_batch[j]: y_true.append(reward_batch[j])
+                    else:
+                        phi_j1=self.memory.phi(next_obs_batch[j])
+                        qvals=targetQ.predict(phi_j1)
+                        y_true.append(reward_batch[j]+self.gamma*max(qvals))
+                    #phi_j=self.memory.phi(obs_batch[j])
+                    #y_pred.append(Q.predict(phi_j)[action_batch[j]])
+                self.Q.fit(obs_batch,y_true)
+                self.targetQ=self.Q
+
+
 
 
     def evaluate(self, env, num_episodes, max_episode_length=None):

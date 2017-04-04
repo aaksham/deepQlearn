@@ -5,10 +5,9 @@ from keras.layers.core import Flatten
 from keras.layers.core import Dense
 
 class DeepQ:
-    def build(self,width,height,depth,nA,weightsPath=None):
+     def build(self,width,height,depth,nA,weightsPath=None):
         model=Sequential()
-        model.add(Convolution2D(16,8,8,strides=4,
-                  input_shape=(depth,width,height)))
+        model.add(Convolution2D(filters=16,kernel_size=(8,8),strides=4,input_shape=(depth,width,height)))
         model.add(Activation("relu"))
         model.add(Convolution2D(32,4,4,strides=2))
         model.add(Activation("relu"))

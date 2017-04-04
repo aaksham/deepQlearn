@@ -24,9 +24,11 @@ def huber_loss(y_true, y_pred, max_grad=1.):
     tf.Tensor
       The huber loss.
     """
-    loss=0.5*tf.square(y_true-y_pred)
-
-    pass
+    residual=tf.abs(y_pred-y_true)
+    condition=tf.less(residual,max_grad)
+    small_residual=0.5*tf.square(residual)
+    large_residual=max_grad*residual-0.5*tf.square(max_grad)
+    return tf.select(condition,small_residual,large_residual)
 
 
 def mean_huber_loss(y_true, y_pred, max_grad=1.):
@@ -50,4 +52,5 @@ def mean_huber_loss(y_true, y_pred, max_grad=1.):
     tf.Tensor
       The mean huber loss.
     """
-    pass
+    loss_tensor=huber_loss(y_true,y_pred,max_grad)
+    return tf.reduce_mean(loss_tensor)
